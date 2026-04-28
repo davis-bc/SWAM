@@ -34,6 +34,24 @@ rule amr_risk_score:
         "../scripts/amr_risk_score.py"
 
 
+rule argnet_short_reads_summary:
+    input:
+        argnet_files = expand(
+            os.path.join(output_dir, "data", "argnet_short_reads", "{sample}_argnet.tsv"),
+            sample=samples
+        )
+    output:
+        tsv = ARGNET_SHORT_READS_SUMMARY_OUTPUT
+    params:
+        samples    = samples,
+        output_dir = output_dir
+    conda: "../envs/contigs.yaml"
+    log:
+        rule_log("argnet_short_reads_summary")
+    script:
+        "../scripts/argnet_short_reads_summary.py"
+
+
 rule argnet_contig_summary:
     input:
         argnet_files    = expand(os.path.join(output_dir, "data", "argnet_contigs", "{sample}_argnet.tsv"), sample=samples),

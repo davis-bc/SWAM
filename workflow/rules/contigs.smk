@@ -366,6 +366,18 @@ rule init_argnet:
                 -o "{params.repo_dir}/model/classifier-ls_tall.h5" \
                 https://github.com/patience111/ARGNet/releases/download/v1.0.1/classifier-ls_tall.h5 2>> {log}
         fi
+        if [ ! -f "{params.repo_dir}/model/AESS_tall.h5" ]; then
+            echo "ARGNet: downloading AESS_tall.h5..." | tee -a {log}
+            curl -L --progress-bar \
+                -o "{params.repo_dir}/model/AESS_tall.h5" \
+                https://github.com/patience111/ARGNet/releases/download/v1.0.1/AESS_tall.h5 2>> {log}
+        fi
+        if [ ! -f "{params.repo_dir}/model/classifier-ss_tall.h5" ]; then
+            echo "ARGNet: downloading classifier-ss_tall.h5..." | tee -a {log}
+            curl -L --progress-bar \
+                -o "{params.repo_dir}/model/classifier-ss_tall.h5" \
+                https://github.com/patience111/ARGNet/releases/download/v1.0.1/classifier-ss_tall.h5 2>> {log}
+        fi
         touch {output.done}
         """
 

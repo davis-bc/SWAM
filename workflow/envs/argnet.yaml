@@ -9,3 +9,6 @@ dependencies:
   - tqdm=4.56.0
   - biopython=1.79
   - numpy=1.23.5
+  - pip
+  - pip:
+      - kito

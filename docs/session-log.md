@@ -1265,3 +1265,56 @@ one is 100 (expected behaviour; will spread meaningfully with more production sa
 - Discovery mode is currently implemented for **contig and MAG proteins only**; short-read ARGNet inference is intentionally not wired into `short_reads_output.csv`.
 - The mock data produced many ARGNet-positive calls, which is expected for a broad discovery model but should be interpreted as exploratory evidence rather than operational confirmation.
 - A real production cohort is still needed to benchmark ARGNet runtime and calibrate how discovery summaries should be interpreted alongside AMRFinderPlus calls.
+
+## 2026-04-28 — ARGNet short-read discovery added
+
+### What changed
+- Extended discovery mode so ARGNet now runs on **host-filtered short reads** as well as contig and MAG proteins.
+- Added the short-read raw inference rule in `workflow/rules/short_reads.smk`:
+  - `short_reads_argnet` converts `{sample}_R1.clean.fastq.gz` + `{sample}_R2.clean.fastq.gz` to a temporary FASTA
+  - runs `run_argnet.py --seq-type nt --model argnet-s`
+  - writes per-sample raw outputs to `data/argnet_short_reads/{sample}_argnet.tsv`
+- Added a new top-level discovery summary:
+  - `ARGnet_short-reads_summary.tsv`
+- Added `workflow/scripts/argnet_short_reads_summary.py`, which summarizes ARGNet short-read calls by:
+  - `sample`
+  - `resistance_category`
+  - `arg_read_count`
+  - `total_reads_scored`
+  - `total_arg_reads`
+  - `non_arg_reads`
+  - `short_fragment_reads`
+  - `arg_fraction`
+  - `arg_reads_per_million`
+  - `mean_probability`
+  - `max_probability`
+- Kept short-read ARGNet metrics intentionally **read-level**, not cpg-normalized, so they can sit next to AMRFinder/KMA outputs without implying direct apples-to-apples abundance equivalence.
+- Updated ARGNet bootstrap/env support:
+  - `init_argnet` now downloads the short-read model files too (`AESS_tall.h5`, `classifier-ss_tall.h5`)
+  - `workflow/envs/argnet.yaml` now installs `kito`, which the upstream `argnet_ssnt_new_chunk.py` imports
+- Updated README/config comments and the session plan to reflect that discovery mode now covers **short reads, contigs, and MAGs**.
+
+### Validation / test run
+- Dry run passed for the new short-read target:
+  - `snakemake -s workflow/Snakefile -n --use-conda --cores 4 --scheduler greedy /home/benda/Projects/NARMS/SWAM-meta/test/output/ARGnet_short-reads_summary.tsv --config test=True amr_mode=discovery`
+- Full short-read discovery execution on the bundled mock dataset succeeded:
+  - `snakemake -s workflow/Snakefile --use-conda --cores 4 --scheduler greedy /home/benda/Projects/NARMS/SWAM-meta/test/output/ARGnet_short-reads_summary.tsv --config test=True amr_mode=discovery`
+- Observed mock output sizes:
+  - `mock1_argnet.tsv`: 570,253 scored reads
+  - `mock2_argnet.tsv`: 791,519 scored reads
+  - `ARGnet_short-reads_summary.tsv`: 45 category rows across both samples
+
+### Current pipeline state
+- Discovery mode now produces a parallel ARGNet layer at all three levels:
+  - short reads: `ARGnet_short-reads_summary.tsv`
+  - contigs: `ARGnet_contig_summary.tsv`
+  - MAGs: `ARGnet_mag_summary.tsv`
+- Operational AMRFinder outputs and risk scoring remain unchanged.
+
+### Known issues / next steps
+- Short-read ARGNet is **substantially slower** than contig/MAG ARGNet on the mock dataset:
+  - mock2 completed in ~21 minutes
+  - mock1 completed in ~15 minutes
+  This is workable for smoke-testing but may be expensive on large production cohorts.
+- Despite forcing CPU mode in `run_argnet.py`, the upstream short-read model still appears to initialize GPU-visible TensorFlow state in this environment. It ran successfully here, but this behavior should be revisited if GPU contention becomes an issue on shared systems.
+- The short-read ARGNet summary is intentionally read-level (counts/fractions/RPM), not cpg-normalized. Any future “apples to apples” comparison with AMRFinder short-read abundance should be treated as a separate methods problem rather than folded into this table implicitly.

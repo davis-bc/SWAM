@@ -8,6 +8,7 @@ SWAM-meta starts from paired-end FASTQs and generates:
 
 - **`fastp_summary.csv`** - per-sample read QC and Nonpareil coverage
 - **`short_reads_output.csv`** - per-gene short-read AMR abundances
+- **`ARGnet_short-reads_summary.tsv`** - discovery-mode ARGnet calls on host-filtered short reads
 - **`assembly_qa.tsv`** - per-sample assembly size, N50, and read-mapping stats
 - **`contig_summary.tsv`** - per-contig abundance, taxonomy, AMR, MGE, and molecule type
 - **`AMR_abundance_summary.csv`** - per-sample AMR abundance plus additive and multiplicative risk scores
@@ -21,7 +22,7 @@ It also keeps lower-level outputs under `out_dir/data/`, including assemblies, g
 
 ## Pipeline at a glance
 
-1. **Short reads** - fastp QC, host filtering, KMA AMR alignment, SCG alignment, anthropogenic marker alignment, Nonpareil
+1. **Short reads** - fastp QC, host filtering, KMA AMR alignment, optional ARGnet discovery, SCG alignment, anthropogenic marker alignment, Nonpareil
 2. **Contigs** - MEGAHIT assembly, geNomad classification, MobMess, Prodigal, AMRFinderPlus, optional ARGnet discovery, MobileElementFinder, MMseqs2 taxonomy, contig abundance
 3. **MAGs** - MetaBAT2 binning, per-bin AMR/MGE annotation, optional ARGnet discovery, abundance, and optional GTDB-tk, CheckM2, and METABOLIC
 4. **Summary** - sample-level AMR abundance and risk scoring from AMR, mobility, host context, and marker-derived exposure
@@ -67,7 +68,7 @@ out_dir: /path/to/output
 amr_mode: discovery  # or operational
 ```
 
-`amr_mode: operational` keeps the current AMRFinderPlus-based outputs only. `amr_mode: discovery` keeps those outputs and adds ARGnet-based discovery summaries for contig and MAG proteins.
+`amr_mode: operational` keeps the current AMRFinderPlus-based outputs only. `amr_mode: discovery` keeps those outputs and adds ARGnet-based discovery summaries for short reads, contig proteins, and MAG proteins.
 
 Then run:
 

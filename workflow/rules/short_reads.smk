@@ -257,7 +257,64 @@ rule short_reads:
         echo "[{wildcards.sample}] nonpareil: done"
         
         """
-        
+         
+# ---------------------------------------------------------------------------
+#   Per-sample: ARGNet on host-filtered short reads in discovery mode
+# ---------------------------------------------------------------------------
+
+rule short_reads_argnet:
+    input:
+        r1          = get_clean_r1,
+        r2          = get_clean_r2,
+        argnet_done = os.path.join(_DB_ARGNET_DIR, ".done")
+    output:
+        tsv = os.path.join(output_dir, "data", "argnet_short_reads", "{sample}_argnet.tsv")
+    params:
+        repo_dir = _ARGNET_REPO_DIR
+    threads: lambda wc: res(8, 4)
+    resources:
+        mem_mb  = lambda wc: res(32000, 8000),
+        threads = lambda wc: res(8, 4),
+    log:
+        sample_log("short_reads_argnet")
+    conda: "../envs/argnet.yaml"
+    shell:
+        """
+        set -euo pipefail
+        mkdir -p "$(dirname {log})" "$(dirname {output.tsv})"
+        TMP_FASTA="$(mktemp "$(dirname {output.tsv})/{wildcards.sample}.short_reads_argnet.XXXXXX.fasta")"
+
+        gunzip -c {input.r1} | awk '
+            NR % 4 == 1 {{
+                hdr = $0
+                sub(/^@/, "", hdr)
+                print ">R1|" hdr
+                next
+            }}
+            NR % 4 == 2 {{ print }}
+        ' > "$TMP_FASTA"
+
+        gunzip -c {input.r2} | awk '
+            NR % 4 == 1 {{
+                hdr = $0
+                sub(/^@/, "", hdr)
+                print ">R2|" hdr
+                next
+            }}
+            NR % 4 == 2 {{ print }}
+        ' >> "$TMP_FASTA"
+
+        echo "[{wildcards.sample}] ARGNet: annotating host-filtered short reads..."
+        python workflow/scripts/run_argnet.py \
+            --repo {params.repo_dir} \
+            --input "$TMP_FASTA" \
+            --output {output.tsv} \
+            --seq-type nt \
+            --model argnet-s >> {log} 2>&1
+        rm -f "$TMP_FASTA"
+        echo "[{wildcards.sample}] ARGNet: done"
+        """
+
 # ------------------------------------------
 #           Summarize results 
 # ------------------------------------------        

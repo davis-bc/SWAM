@@ -66,6 +66,7 @@ _ARGNET_REPO_DIR = os.path.join(_DB_ARGNET_DIR, "ARGNet")
 
 FASTP_SUMMARY = os.path.join(output_dir, "fastp_summary.csv")
 SHORT_READS_OUTPUT = os.path.join(output_dir, "short_reads_output.csv")
+ARGNET_SHORT_READS_SUMMARY_OUTPUT = os.path.join(output_dir, "ARGnet_short-reads_summary.tsv")
 MARKERS_CPG_OUTPUT = os.path.join(output_dir, "data", "QAQC", "markers_cpg.csv")
 ASSEMBLY_QA_OUTPUT = os.path.join(output_dir, "assembly_qa.tsv")
 CONTIG_SUMMARY_OUTPUT = os.path.join(output_dir, "contig_summary.tsv")

@@ -25,6 +25,7 @@ run_mags: True
 # AMR annotation mode:
 #   operational - current conservative AMRFinderPlus outputs only
 #   discovery   - keep current outputs and add ARGnet-based discovery summaries
+#                 for short reads, contigs, and MAGs
 amr_mode: "operational"
 
 # -------------------------------------------------------------------
