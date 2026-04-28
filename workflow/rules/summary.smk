@@ -34,6 +34,25 @@ rule amr_risk_score:
         "../scripts/amr_risk_score.py"
 
 
+rule argnet_contig_summary:
+    input:
+        argnet_files    = expand(os.path.join(output_dir, "data", "argnet_contigs", "{sample}_argnet.tsv"), sample=samples),
+        plas_summaries  = expand(os.path.join(output_dir, "data", "genomad", "{sample}", "{sample}.contigs_summary", "{sample}.contigs_plasmid_summary.tsv"), sample=samples),
+        vir_summaries   = expand(os.path.join(output_dir, "data", "genomad", "{sample}", "{sample}.contigs_summary", "{sample}.contigs_virus_summary.tsv"), sample=samples),
+        lca_files       = expand(os.path.join(output_dir, "data", "mmseqs", "{sample}_lca.tsv"), sample=samples),
+        abund_files     = expand(os.path.join(output_dir, "data", "contig_abundance", "{sample}_contig_abundance.tsv"), sample=samples)
+    output:
+        tsv = ARGNET_CONTIG_SUMMARY_OUTPUT
+    params:
+        samples    = samples,
+        output_dir = output_dir
+    conda: "../envs/contigs.yaml"
+    log:
+        rule_log("argnet_contig_summary")
+    script:
+        "../scripts/argnet_contig_summary.py"
+
+
 rule mag_summary:
     input:
         amr_files   = expand(
@@ -60,3 +79,26 @@ rule mag_summary:
         rule_log("mag_summary")
     script:
         "../scripts/mag_summary.py"
+
+
+rule argnet_mag_summary:
+    input:
+        argnet_files = expand(
+            os.path.join(output_dir, "data", "bins", "{sample}", "mag_argnet.tsv"),
+            sample=samples
+        ),
+        abund_files = expand(
+            os.path.join(output_dir, "data", "bins", "{sample}", "mag_abundance.tsv"),
+            sample=samples
+        ),
+    output:
+        tsv = ARGNET_MAG_SUMMARY_OUTPUT
+    params:
+        samples     = samples,
+        output_dir  = output_dir,
+        skip_gtdbtk = lambda wc: config.get("skip_gtdbtk", False),
+    conda: "../envs/contigs.yaml"
+    log:
+        rule_log("argnet_mag_summary")
+    script:
+        "../scripts/argnet_mag_summary.py"

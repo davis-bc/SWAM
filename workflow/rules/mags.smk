@@ -217,6 +217,61 @@ rule mag_amr:
         """
 
 # ---------------------------------------------------------------------------
+#   Per-sample: ARGNet on concatenated MAG proteins for discovery mode
+# ---------------------------------------------------------------------------
+
+rule mag_argnet:
+    input:
+        done        = os.path.join(output_dir, "data", "bins", "{sample}", ".prodigal.done"),
+        argnet_done = os.path.join(_DB_ARGNET_DIR, ".done")
+    output:
+        tsv  = os.path.join(output_dir, "data", "bins", "{sample}", "mag_argnet.tsv")
+    params:
+        prd_dir   = os.path.join(output_dir, "data", "bins", "{sample}", "prodigal"),
+        repo_dir  = _ARGNET_REPO_DIR
+    threads: lambda wc: res(8, 4)
+    resources:
+        mem_mb  = lambda wc: res(32000, 8000),
+        threads = lambda wc: res(8, 4),
+    log:
+        sample_log("mag_argnet")
+    conda: "../envs/argnet.yaml"
+    shell:
+        """
+        set -euo pipefail
+        mkdir -p "$(dirname {log})"
+        mkdir -p "$(dirname {output.tsv})"
+        TMP_FAA="$(mktemp "$(dirname {output.tsv})/{wildcards.sample}.mag_argnet.XXXXXX.faa")"
+        : > "$TMP_FAA"
+        for faa in {params.prd_dir}/*.faa; do
+            [ -f "$faa" ] || continue
+            bin=$(basename "$faa" .faa)
+            awk -v bin="$bin" '
+                /^>/ {{
+                    sub(/^>/, "", $0)
+                    split($0, fields, " ")
+                    print ">" bin "|" fields[1]
+                    next
+                }}
+                {{print}}
+            ' "$faa" >> "$TMP_FAA"
+        done
+        if [ ! -s "$TMP_FAA" ]; then
+            printf "test_id\\tARG_prediction\\tresistance_category\\tprobability\\n" > {output.tsv}
+        else
+            echo "[{wildcards.sample}] ARGNet: annotating MAG proteins..."
+            python workflow/scripts/run_argnet.py \
+                --repo {params.repo_dir} \
+                --input "$TMP_FAA" \
+                --output {output.tsv} \
+                --seq-type aa \
+                --model argnet-l >> {log} 2>&1
+            echo "[{wildcards.sample}] ARGNet: done"
+        fi
+        rm -f "$TMP_FAA"
+        """
+
+# ---------------------------------------------------------------------------
 #   Per-sample: MobileElementFinder on all bins
 # ---------------------------------------------------------------------------
 

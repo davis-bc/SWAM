@@ -22,6 +22,11 @@ run_contigs: True
 # taxonomy, metabolism, quality, abundance).
 run_mags: True
 
+# AMR annotation mode:
+#   operational - current conservative AMRFinderPlus outputs only
+#   discovery   - keep current outputs and add ARGnet-based discovery summaries
+amr_mode: "operational"
+
 # -------------------------------------------------------------------
 #  External inputs — required when bypassing upstream stages
 # -------------------------------------------------------------------

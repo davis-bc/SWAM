@@ -12,6 +12,8 @@ SWAM-meta starts from paired-end FASTQs and generates:
 - **`contig_summary.tsv`** - per-contig abundance, taxonomy, AMR, MGE, and molecule type
 - **`AMR_abundance_summary.csv`** - per-sample AMR abundance plus additive and multiplicative risk scores
 - **`mag_summary.tsv`** - per-MAG abundance and annotations
+- **`ARGnet_contig_summary.tsv`** - discovery-mode ARGnet calls on contig proteins with contig context
+- **`ARGnet_mag_summary.tsv`** - discovery-mode ARGnet calls on MAG proteins
 
 It also keeps lower-level outputs under `out_dir/data/`, including assemblies, geNomad results, MobMess output, MAG files, and the marker support table `data/QAQC/markers_cpg.csv`.
 
@@ -20,8 +22,8 @@ It also keeps lower-level outputs under `out_dir/data/`, including assemblies, g
 ## Pipeline at a glance
 
 1. **Short reads** - fastp QC, host filtering, KMA AMR alignment, SCG alignment, anthropogenic marker alignment, Nonpareil
-2. **Contigs** - MEGAHIT assembly, geNomad classification, MobMess, Prodigal, AMRFinderPlus, MobileElementFinder, MMseqs2 taxonomy, contig abundance
-3. **MAGs** - MetaBAT2 binning, per-bin AMR/MGE annotation, abundance, and optional GTDB-tk, CheckM2, and METABOLIC
+2. **Contigs** - MEGAHIT assembly, geNomad classification, MobMess, Prodigal, AMRFinderPlus, optional ARGnet discovery, MobileElementFinder, MMseqs2 taxonomy, contig abundance
+3. **MAGs** - MetaBAT2 binning, per-bin AMR/MGE annotation, optional ARGnet discovery, abundance, and optional GTDB-tk, CheckM2, and METABOLIC
 4. **Summary** - sample-level AMR abundance and risk scoring from AMR, mobility, host context, and marker-derived exposure
 
 [![SWAM-meta rulegraph](docs/rulegraph.png)](docs/rulegraph.png)
@@ -62,7 +64,10 @@ Edit `config/config.yaml`:
 ```yaml
 in_dir:  /path/to/fastq_files
 out_dir: /path/to/output
+amr_mode: discovery  # or operational
 ```
+
+`amr_mode: operational` keeps the current AMRFinderPlus-based outputs only. `amr_mode: discovery` keeps those outputs and adds ARGnet-based discovery summaries for contig and MAG proteins.
 
 Then run:
 
@@ -97,6 +102,7 @@ This uses the default resilient-style Slurm profile in `config/slurm/`, keeps in
 Most databases are downloaded and prepared automatically in `dbs/` on first use, including:
 
 - AMRFinderPlus databases
+- ARGNet models (discovery mode only)
 - human reference for host filtering
 - anthropogenic markers (`pBI143`, `crAss001`)
 - geNomad database

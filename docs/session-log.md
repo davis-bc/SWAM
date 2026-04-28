@@ -1213,3 +1213,55 @@ one is 100 (expected behaviour; will spread meaningfully with more production sa
 - `checkm2.yaml`, `gtdbtk.yaml`, and `metabolic.yaml` are still not version-pinned.
 - The new Slurm wrapper/reporting path was validated locally and against test outputs, but not yet on a real cluster submission.
 - A larger real cohort is still needed to validate risk-score spread beyond the 2-sample mock test.
+
+## 2026-04-28 — ARGNet discovery mode added and exercised on the mock dataset
+
+### What changed
+- Added a new `amr_mode` config switch in `config/config.yaml`:
+  - `operational` (default): existing AMRFinderPlus-only behavior
+  - `discovery`: keep all existing operational outputs and add ARGNet discovery outputs
+- Added discovery-mode plumbing in `workflow/rules/common.smk` and `workflow/Snakefile`:
+  - normalized/validated `amr_mode`
+  - new discovery-mode top-level outputs:
+    - `ARGnet_contig_summary.tsv`
+    - `ARGnet_mag_summary.tsv`
+- Added ARGNet bootstrap and inference rules:
+  - `init_argnet` clones ARGNet under `dbs/argnet/ARGNet/` and downloads the long-sequence model files (`AELS_tall.h5`, `classifier-ls_tall.h5`)
+  - `contig_argnet` runs ARGNet on per-sample Prodigal protein FASTA from assembled contigs
+  - `mag_argnet` concatenates per-bin Prodigal proteins with bin-prefixed IDs and runs ARGNet once per sample
+- Added a dedicated ARGNet conda env at `workflow/envs/argnet.yaml` (Python 3.11 + TensorFlow CPU stack compatible with upstream ARGNet)
+- Added `workflow/scripts/run_argnet.py` as a wrapper around the upstream ARGNet checkout:
+  - imports the upstream model module directly
+  - forces CPU execution (`CUDA_VISIBLE_DEVICES=-1`) so discovery runs do not compete for GPU memory
+  - sanitizes Prodigal amino-acid FASTA by stripping `*` stop codons before inference
+  - moves repo-relative ARGNet output into the Snakemake-declared output path
+- Added discovery summary scripts:
+  - `workflow/scripts/argnet_contig_summary.py`
+  - `workflow/scripts/argnet_mag_summary.py`
+  These emit ARG-positive-only tables with contextual metadata instead of modifying existing AMRFinderPlus outputs or risk scoring.
+- Updated `README.md` to document `amr_mode` and the new discovery outputs.
+
+### Validation / test run
+- Discovery-mode dry run passed:
+  - `snakemake -s workflow/Snakefile -n --use-conda --cores 4 --scheduler greedy --config test=True amr_mode=discovery`
+- Discovery-mode execution on the bundled mock dataset succeeded for the new outputs:
+  - `snakemake -s workflow/Snakefile --use-conda --cores 4 --scheduler greedy --rerun-incomplete /home/benda/Projects/NARMS/SWAM-meta/test/output/ARGnet_contig_summary.tsv /home/benda/Projects/NARMS/SWAM-meta/test/output/ARGnet_mag_summary.tsv --config test=True amr_mode=discovery`
+- Output shape confirmed:
+  - per-sample raw ARGNet files contain `test_id`, `ARG_prediction`, `resistance_category`, `probability`
+  - `ARGnet_contig_summary.tsv` adds `sample`, `protein_id`, `contig_id`, `trimmed_mean`, `molecule_type`, and `taxonomy`
+  - `ARGnet_mag_summary.tsv` adds `sample`, `bin_id`, `protein_id`, `contig_id`, and MAG abundance
+- Mock test output counts from this run:
+  - `ARGnet_contig_summary.tsv`: 1648 ARG-positive rows
+  - `ARGnet_mag_summary.tsv`: 1839 ARG-positive rows
+
+### Current pipeline state
+- Operational mode remains the default and still uses AMRFinderPlus-derived outputs and risk scoring only.
+- Discovery mode now runs ARGNet alongside the operational AMRFinderPlus path for contig and MAG proteins.
+- The mock dataset run completed successfully for both discovery summaries after two integration fixes:
+  - sanitize `*` stop codons in Prodigal proteins before ARGNet inference
+  - force CPU execution to avoid concurrent GPU-memory contention during test-mode runs
+
+### Known issues / next steps
+- Discovery mode is currently implemented for **contig and MAG proteins only**; short-read ARGNet inference is intentionally not wired into `short_reads_output.csv`.
+- The mock data produced many ARGNet-positive calls, which is expected for a broad discovery model but should be interpreted as exploratory evidence rather than operational confirmation.
+- A real production cohort is still needed to benchmark ARGNet runtime and calibrate how discovery summaries should be interpreted alongside AMRFinderPlus calls.

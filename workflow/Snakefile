@@ -26,7 +26,7 @@ include: "rules/contigs.smk"
 include: "rules/mags.smk"
 include: "rules/summary.smk"
 
-localrules: initiate_dbs, short_reads_summary, init_genomad, init_amrfinder_db, init_checkm2_db, init_mge_tool, contig_summary, assembly_qa, amr_risk_score, mag_summary
+localrules: initiate_dbs, short_reads_summary, init_genomad, init_amrfinder_db, init_argnet, init_checkm2_db, init_mge_tool, contig_summary, argnet_contig_summary, assembly_qa, amr_risk_score, mag_summary, argnet_mag_summary
 
 # ------------------------------------------
 #   Define the target outputs for pipeline
@@ -53,6 +53,8 @@ def all_targets(wildcards):
             CONTIG_SUMMARY_OUTPUT,
             ASSEMBLY_QA_OUTPUT,
         ]
+        if _RUN_ARGNET:
+            targets += [ARGNET_CONTIG_SUMMARY_OUTPUT]
 
     # --- MAG stage ---
     if _RUN_MAGS:
@@ -62,6 +64,11 @@ def all_targets(wildcards):
             *expand(os.path.join(output_dir, "data", "bins", "{sample}", "mag_mge.tsv"), sample=samples),
             *expand(os.path.join(output_dir, "data", "bins", "{sample}", "mag_abundance.tsv"), sample=samples),
         ]
+        if _RUN_ARGNET:
+            targets += expand(
+                os.path.join(output_dir, "data", "bins", "{sample}", "mag_argnet.tsv"),
+                sample=samples
+            )
         if not config.get("skip_gtdbtk", False):
             targets += expand(
                 os.path.join(output_dir, "data", "bins", "{sample}", "gtdbtk.summary.tsv"),
@@ -78,6 +85,8 @@ def all_targets(wildcards):
                 sample=samples
             )
         targets += [MAG_SUMMARY_OUTPUT]
+        if _RUN_ARGNET:
+            targets += [ARGNET_MAG_SUMMARY_OUTPUT]
 
     return targets
 
