@@ -1,10 +1,10 @@
-# SWAM-meta
+# SWAM — Surface Water AMR Monitoring
 
 Snakemake workflow for end-to-end metagenomic analysis of antibiotic resistance in environmental bacterial communities.
 
 ## What it produces
 
-SWAM-meta starts from paired-end FASTQs and generates:
+SWAM starts from paired-end FASTQs and generates:
 
 - **`fastp_summary.csv`** - per-sample read QC and Nonpareil coverage
 - **`short_reads_output.csv`** - per-gene short-read AMR abundances
@@ -27,71 +27,84 @@ It also keeps lower-level outputs under `out_dir/data/`, including assemblies, g
 3. **MAGs** - MetaBAT2 binning, per-bin AMR/MGE annotation, optional ARGnet discovery, abundance, and optional GTDB-tk, CheckM2, and METABOLIC
 4. **Summary** - sample-level AMR abundance and risk scoring from AMR, mobility, host context, and marker-derived exposure
 
-[![SWAM-meta rulegraph](docs/rulegraph.png)](docs/rulegraph.png)
+[![SWAM rulegraph](docs/rulegraph.png)](docs/rulegraph.png)
 
 ---
 
 ## Installation
 
 ```bash
-git clone https://github.com/<org>/SWAM-meta.git
-cd SWAM-meta
+git clone https://github.com/davis-bc/SWAM.git
+cd SWAM
 conda install -c conda-forge -c bioconda "snakemake>=8" snakemake-executor-plugin-slurm
+python -m pip install -e .        # installs the `swam` CLI (textual, ruamel.yaml)
 ```
 
-All workflow tools are installed automatically into per-rule conda environments on first run with `--use-conda`.
+A conda recipe is in `recipe/meta.yaml`. All workflow tools are installed automatically into per-rule conda environments on first run.
 
-> **Always use `--scheduler greedy`.** The default MILP scheduler requires the `cbc` solver, which is not installed.
+The supported entrypoint is the `swam` CLI:
+
+| Command | What it does |
+|---|---|
+| `swam config [--profile slurm\|local]` | Terminal UI to toggle stages, set paths, and configure Slurm + Snakemake |
+| `swam run [--profile slurm\|local]` | Stages the packaged workflow and runs Snakemake, then writes the run report |
+
+Profiles are user-owned copies seeded on first use at `~/.config/swam/profiles/<profile>/config.yaml` (every TUI save keeps a backup in `~/.config/swam/backups/`). The workflow is staged into `~/.cache/swam/runtime/<version>/`; databases default to `~/.local/share/swam/dbs/` (set **Database dir** in the TUI to reuse an existing `dbs/`).
 
 ---
 
 ## Quick start
 
-### Test mode
-
-This runs the full workflow on two bundled mock samples and mini databases.
+### 1. Configure
 
 ```bash
-snakemake -n --use-conda --cores 4 --scheduler greedy --config test=True
-snakemake    --use-conda --cores 4 --scheduler greedy --config test=True
+swam config --profile local     # or --profile slurm
+```
+
+| Side tab | Settings |
+|---|---|
+| **Stages** | Short reads / Contigs / MAGs toggles, AMR mode, geNomad splits, min read length, GTDB-tk/METABOLIC/CheckM2 skips |
+| **Paths** | input FASTQ dir, output dir, database dir, GTDB-tk data, clean-reads and contigs dirs for partial runs |
+| **Slurm** | account, partition, default mem/walltime, per-rule threads / mem / walltime / group size |
+| **Snakemake** | jobs, cores, restarts, latency wait, conda frontend, keep-going / rerun-incomplete etc. |
+
+Keys: `1`–`4` switch tabs, `Ctrl+S` save, `Ctrl+R` reload, `Q` quit. The orb bar shows how many samples were found in the input dir, and the Stages tab flags missing inputs for partial runs.
+
+`amr_mode: operational` keeps the AMRFinderPlus-based outputs only. `amr_mode: discovery` keeps those outputs and adds ARGnet-based discovery summaries for short reads, contig proteins, and MAG proteins.
+
+### 2. Run
+
+```bash
+swam run --profile local -n                       # dry run using the profile's in/out dirs
+swam run --profile local --input /path/to/fastq --output /path/to/output
+```
+
+`--input/--output` override the profile; anything else is passed to Snakemake (`-n`, `--until`, `--forcerun <rule>`, `--config key=value`, ...). `--scheduler greedy` is always added (the default MILP scheduler needs the missing `cbc` solver).
+
+### Test mode
+
+Runs the full workflow on two bundled mock samples and mini databases (needs this source checkout):
+
+```bash
+swam run --profile local --test -n
+swam run --profile local --test
 ```
 
 Expected runtime is about 30-60 minutes on a laptop. Outputs go to `test/output/`.
 
-### Production mode
-
-Edit `config/config.yaml`:
-
-```yaml
-in_dir:  /path/to/fastq_files
-out_dir: /path/to/output
-amr_mode: discovery  # or operational
-```
-
-`amr_mode: operational` keeps the current AMRFinderPlus-based outputs only. `amr_mode: discovery` keeps those outputs and adds ARGnet-based discovery summaries for short reads, contig proteins, and MAG proteins.
-
-Then run:
-
-```bash
-snakemake -n --use-conda --scheduler greedy
-snakemake    --use-conda --cores <N> --scheduler greedy
-```
-
-To resume after a failed run:
-
-```bash
-snakemake --use-conda --cores <N> --scheduler greedy --rerun-incomplete
-```
-
 ### Production mode on SLURM
 
-Edit the `default-resources.slurm_account` and `default-resources.slurm_partition` fields in `config/slurm/config.yaml`, then run:
+Set the Slurm account and partition with `swam config --profile slurm`, then submit the driver job:
 
 ```bash
-bash run_swam-meta.sh /path/to/fastq_files /path/to/output
+#!/bin/bash
+#SBATCH --job-name=swam
+#SBATCH --time=7-00:00:00
+#SBATCH --mem=8G
+swam run --profile slurm --input /path/to/fastq_files --output /path/to/output
 ```
 
-This uses the default resilient-style Slurm profile in `config/slurm/`, keeps incomplete outputs, retries failed jobs, and writes:
+`bash run_swam.sh /path/to/fastq_files /path/to/output` still works and forwards to `swam run --profile slurm`. Each run writes:
 
 - `{out_dir}/logs/run_status/run_report.txt`
 - `{out_dir}/logs/run_status/sample_rule_status.tsv`
@@ -100,7 +113,7 @@ This uses the default resilient-style Slurm profile in `config/slurm/`, keeps in
 
 ## Databases
 
-Most databases are downloaded and prepared automatically in `dbs/` on first use, including:
+Most databases are downloaded and prepared automatically in the database dir (`dbs_dir`, default `~/.local/share/swam/dbs/`) on first use, including:
 
 - AMRFinderPlus databases
 - ARGNet models (discovery mode only)
@@ -111,7 +124,7 @@ Most databases are downloaded and prepared automatically in `dbs/` on first use,
 - CheckM2 database
 - METABOLIC
 
-The repo-level `dbs/` directory is organized by tool or reference bundle:
+The database dir is organized by tool or reference bundle:
 
 ```text
 dbs/
@@ -132,13 +145,9 @@ dbs/
 conda run -n gtdbtk download-db.sh /path/to/gtdbtk_db
 ```
 
-Then set:
+Then set **GTDB-tk data dir** on the TUI Paths tab (`gtdbtk_db`).
 
-```yaml
-gtdbtk_db: /path/to/gtdbtk_db
-```
-
-Optional stages can be disabled in `config/config.yaml`:
+Optional stages can be disabled on the TUI Stages tab (profile `config:` block):
 
 ```yaml
 skip_gtdbtk: False
@@ -153,35 +162,13 @@ Increase `genomad_splits` if geNomad needs less peak memory.
 
 ## Running on SLURM
 
-SWAM-meta ships with a single default Slurm profile in `config/slurm/config.yaml`.
-
-Set:
-
-```yaml
-default-resources:
-  slurm_account: "your_account"
-  slurm_partition: "your_partition"
-```
-
-Then either run through the wrapper:
-
-```bash
-bash run_swam-meta.sh /path/to/fastq_files /path/to/output
-```
-
-or call Snakemake directly:
-
-```bash
-snakemake --profile config/slurm/ --config in_dir=/path/to/fastq_files out_dir=/path/to/output
-```
-
-The profile already enables `use-conda`, the greedy scheduler, retries, `keep-going`, and grouped execution for lightweight sample-parallel rules.
+SWAM ships with a single default Slurm profile (`src/swam/assets/config/slurm/config.yaml`), seeded into `~/.config/swam/profiles/slurm/` on first use. It enables `use-conda`, the greedy scheduler, retries, `keep-going`, and grouped execution for lightweight sample-parallel rules. `contigs`, `genomad`, and `bin` scale memory and walltime per retry attempt inside the rules, so only their threads are set in the profile.
 
 ---
 
 ## Running only part of the workflow
 
-Use these config flags:
+Toggle stages on the TUI Stages tab, or override per run with `--config`:
 
 ```yaml
 run_short_reads: True
@@ -244,7 +231,7 @@ n_genomes = Σ(alignment_length / gene_length) / 40
 cpg       = mean_depth / n_genomes
 ```
 
-The 40-gene denominator comes from the bundled single-copy gene reference in `workflow/resources/SCGs_40_All.fasta`.
+The 40-gene denominator comes from the bundled single-copy gene reference in `src/swam/assets/workflow/resources/SCGs_40_All.fasta`.
 
 Risk scoring combines four components:
 
@@ -260,14 +247,22 @@ Both additive and multiplicative sample-level scores are reported.
 ## Repository layout
 
 ```text
-config/                 user configuration and SLURM profiles
+pyproject.toml          `swam` package (CLI + TUI)
+recipe/                 conda recipe
+run_swam.sh        shim for `swam run --profile slurm`
+src/swam/
+  cli.py                `swam config` / `swam run`
+  config.py             user profile paths, seeding, backups
+  runtime.py            stages the workflow and runs Snakemake
+  tui.py, tui.tcss      Textual configuration UI
+  assets/
+    config/             pipeline defaults (config.yaml) + slurm/ and local/ profile templates
+    workflow/
+      Snakefile         workflow entry point
+      envs/             per-rule conda environments
+      resources/        bundled reference files
+      rules/            short-read, contig, MAG, and summary rules
+      scripts/          Python/R scripts used by rules
 docs/                   rule graph and session log
 test/                   mock data, mini databases, reproducible test scripts
-workflow/
-  Snakefile             workflow entry point
-  envs/                 per-rule conda environments
-  resources/            bundled reference files
-  rules/                short-read, contig, MAG, and summary rules
-  scripts/              Python/R scripts used by rules
-dbs/                    auto-managed databases (gitignored)
 ```

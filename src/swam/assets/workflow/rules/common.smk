@@ -9,11 +9,16 @@ import re
 
 _TEST   = config.get("test", False)
 _DB_TAG = ".test" if _TEST else ""
-_REPO   = os.path.dirname(os.path.dirname(os.path.dirname(workflow.snakefile)))
+# Runtime root: the directory that holds workflow/ (and config/). Resolved from
+# workflow.basedir so it is correct for both relative and absolute -s paths.
+_REPO   = os.path.dirname(os.path.abspath(workflow.basedir))
+# Test assets (mock FASTQs + mini DBs) live in the source checkout, not in the
+# installed package; `swam run --test` passes test_dir explicitly.
+_TEST_DIR = config.get("test_dir") or os.path.join(_REPO, "test")
 
 if _TEST:
-    input_dir  = os.path.join(_REPO, "test", "data")
-    output_dir = os.path.join(_REPO, "test", "output")
+    input_dir  = os.path.join(_TEST_DIR, "data")
+    output_dir = os.path.join(_TEST_DIR, "output")
     # GTDB-tk, METABOLIC, and CheckM2 are skipped in test mode
     config["skip_gtdbtk"]    = True
     config["skip_metabolic"] = True
@@ -26,12 +31,12 @@ else:
 
 # ---------------------------------------------------------------------------
 #   Database paths
-#   All production databases live in SWAM-meta/dbs/ under one subdirectory per
+#   All production databases live in dbs_dir (default <runtime root>/dbs/) under one subdirectory per
 #   tool or reference bundle. Legacy paths are kept here so init rules can
 #   migrate older layouts in-place without forcing unnecessary re-downloads.
 # ---------------------------------------------------------------------------
 
-_DBS_DIR = os.path.join(_REPO, "dbs")
+_DBS_DIR = config.get("dbs_dir") or os.path.join(_REPO, "dbs")
 
 _DB_AMR_KMA_DIR  = os.path.join(_DBS_DIR, "amrfinderplus_kma")
 _DB_AMR_DIR      = os.path.join(_DBS_DIR, "amrfinderplus")
@@ -49,7 +54,7 @@ _LEGACY_GENOMAD_DB_DIR = os.path.join(_DBS_DIR, "genomad_db")
 _LEGACY_AFP_DB_DIR     = os.path.join(_DBS_DIR, "amrfinderplus_db")
 
 _SCG_SOURCE_FASTA = (
-    os.path.join(_REPO, "test", "dbs", "scg", "SCGs_40.fasta")
+    os.path.join(_TEST_DIR, "dbs", "scg", "SCGs_40.fasta")
     if _TEST else os.path.join(_REPO, "workflow", "resources", "SCGs_40_All.fasta")
 )
 

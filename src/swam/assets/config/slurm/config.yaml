@@ -1,4 +1,4 @@
-# Default Slurm profile for SWAM-meta.
+# Default Slurm profile for SWAM.
 #
 # This is the single supported HPC profile. Heavy assembly / classification /
 # binning rules scale their memory and runtime in the Snakefile across retry
@@ -124,3 +124,25 @@ set-resources:
   mag_abundance:
     mem_mb: 32000
     runtime: 240
+
+# -------------------------------------------------------------------
+#  Pipeline settings (edited by `swam config`; override
+#  config/config.yaml defaults). in_dir/out_dir can also be given
+#  with `swam run --input/--output`.
+# -------------------------------------------------------------------
+config:
+  in_dir: ""
+  out_dir: ""
+  dbs_dir: ""
+  gtdbtk_db: ""
+  clean_reads_dir: ""
+  contigs_dir: ""
+  run_short_reads: true
+  run_contigs: true
+  run_mags: true
+  amr_mode: operational
+  skip_gtdbtk: false
+  skip_metabolic: false
+  skip_checkm2: false
+  genomad_splits: 1
+  min_read_length: 50

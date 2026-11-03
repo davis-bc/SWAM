@@ -1,0 +1,44 @@
+# Local workstation profile for SWAM.
+#
+# Production databases and full metagenome assembly need substantial RAM;
+# this profile is intended for small cohorts and `swam run --test`.
+
+executor: local
+scheduler: greedy
+cores: 8
+
+use-conda: true
+conda-frontend: conda
+keep-incomplete: true
+keep-going: true
+rerun-incomplete: true
+restart-times: 0
+latency-wait: 5
+show-failed-logs: true
+
+# Global resource pool: Snakemake never schedules jobs whose summed mem_mb
+# exceeds this value. Leave headroom for the OS.
+resources:
+  mem_mb: 30000
+
+# -------------------------------------------------------------------
+#  Pipeline settings (edited by `swam config`; override
+#  config/config.yaml defaults). in_dir/out_dir can also be given
+#  with `swam run --input/--output`.
+# -------------------------------------------------------------------
+config:
+  in_dir: ""
+  out_dir: ""
+  dbs_dir: ""
+  gtdbtk_db: ""
+  clean_reads_dir: ""
+  contigs_dir: ""
+  run_short_reads: true
+  run_contigs: true
+  run_mags: true
+  amr_mode: operational
+  skip_gtdbtk: false
+  skip_metabolic: false
+  skip_checkm2: false
+  genomad_splits: 1
+  min_read_length: 50

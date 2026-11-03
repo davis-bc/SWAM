@@ -1,0 +1,37 @@
+{% set name = "swam" %}
+{% set version = "0.1.0" %}
+
+package:
+  name: {{ name }}
+  version: {{ version }}
+
+source:
+  path: ..
+
+build:
+  noarch: python
+  script: {{ PYTHON }} -m pip install . --no-deps --no-build-isolation -vv
+  entry_points:
+    - swam = swam.cli:main
+
+requirements:
+  host:
+    - python >=3.10
+    - pip
+    - setuptools >=69
+    - wheel
+  run:
+    - python >=3.10
+    - ruamel.yaml >=0.18,<0.19
+    - textual >=6,<7
+
+test:
+  commands:
+    - swam --help
+    - swam config --print-path --profile slurm
+    - swam run --help
+    - swam run --print-runtime-root
+
+about:
+  home: https://github.com/davis-bc/SWAM
+  summary: SWAM metagenomic AMR workflow CLI and terminal configuration UI

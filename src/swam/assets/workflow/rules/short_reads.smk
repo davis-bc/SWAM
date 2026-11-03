@@ -24,10 +24,10 @@ rule initiate_dbs:
         legacy_root      = _DBS_DIR,
         legacy_sr_dir    = _LEGACY_SR_DBS_DIR,
         test_mode        = _TEST,
-        test_amr_fa      = os.path.join(_REPO, "test", "dbs", "amrfinder", "AMR_CDS.fa"),
-        test_meta        = os.path.join(_REPO, "test", "dbs", "amrfinder", "ReferenceGeneCatalog.txt"),
-        test_human       = os.path.join(_REPO, "test", "dbs", "human", "human_mini.fna.gz"),
-        test_markers_dir = os.path.join(_REPO, "test", "dbs", "markers"),
+        test_amr_fa      = os.path.join(_TEST_DIR, "dbs", "amrfinder", "AMR_CDS.fa"),
+        test_meta        = os.path.join(_TEST_DIR, "dbs", "amrfinder", "ReferenceGeneCatalog.txt"),
+        test_human       = os.path.join(_TEST_DIR, "dbs", "human", "human_mini.fna.gz"),
+        test_markers_dir = os.path.join(_TEST_DIR, "dbs", "markers"),
     log:
         rule_log("initiate_dbs")
     conda: "../envs/shortreads.yaml"

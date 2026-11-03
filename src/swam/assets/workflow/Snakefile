@@ -14,7 +14,9 @@ wildcard_constraints:
 #   Load configuration
 # ------------------------
 
-configfile: "config/config.yaml"
+# Pipeline defaults ship next to workflow/; profile `config:` blocks and
+# --config override them.
+configfile: os.path.join(workflow.basedir, "..", "config", "config.yaml")
 
 # ---------------
 #   Load rules

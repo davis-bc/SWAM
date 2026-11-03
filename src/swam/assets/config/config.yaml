@@ -45,6 +45,11 @@ contigs_dir: ""
 #  Reference databases
 # -------------------------------------------------------------------
 
+# Root directory for auto-downloaded reference databases (AMRFinderPlus, geNomad,
+# UniRef50, CheckM2, ...). Empty = `swam run` uses ~/.local/share/swam/dbs
+# (or <runtime root>/dbs/ when Snakemake is invoked directly).
+dbs_dir: ""
+
 # Path to the GTDB-tk reference data directory (the only database that
 # requires manual setup — all others are auto-downloaded by initiate_dbs).
 # Download with:  conda run -n gtdbtk download-db.sh /path/to/gtdbtk_db

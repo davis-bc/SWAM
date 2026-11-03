@@ -199,9 +199,9 @@ rule init_mmseqs_db:
         test_mode    = _TEST,
         db_prefix    = _UNIREF50_DB,
         dbs_dir      = _DB_UNIREF50_DIR,
-        test_fasta   = os.path.join(_REPO, "test", "dbs", "uniref50", "uniref50_mini.fasta"),
-        test_tax_dir = os.path.join(_REPO, "test", "dbs", "uniref50"),
-        test_mapping = os.path.join(_REPO, "test", "dbs", "uniref50", "tax_mapping.tsv"),
+        test_fasta   = os.path.join(_TEST_DIR, "dbs", "uniref50", "uniref50_mini.fasta"),
+        test_tax_dir = os.path.join(_TEST_DIR, "dbs", "uniref50"),
+        test_mapping = os.path.join(_TEST_DIR, "dbs", "uniref50", "tax_mapping.tsv"),
     threads: lambda wc: res(16, 4)
     resources:
         mem_mb  = lambda wc: res(32000, 4000),

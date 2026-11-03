@@ -1,4 +1,4 @@
-SWAM-meta mock dataset v2 — generation summary
+SWAM mock dataset v2 — generation summary
 ============================================================
 
 Reference genome source

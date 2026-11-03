@@ -1318,3 +1318,51 @@ one is 100 (expected behaviour; will spread meaningfully with more production sa
   This is workable for smoke-testing but may be expensive on large production cohorts.
 - Despite forcing CPU mode in `run_argnet.py`, the upstream short-read model still appears to initialize GPU-visible TensorFlow state in this environment. It ran successfully here, but this behavior should be revisited if GPU contention becomes an issue on shared systems.
 - The short-read ARGNet summary is intentionally read-level (counts/fractions/RPM), not cpg-normalized. Any future “apples to apples” comparison with AMRFinder short-read abundance should be treated as a separate methods problem rather than folded into this table implicitly.
+
+## 2026-11-03 — Packaged `swam` CLI + Textual config TUI; project renamed SWAM-meta → SWAM
+
+### What was done
+- Repackaged the workflow following the OHM-g pattern: installable `swam` package (`pyproject.toml`, `recipe/meta.yaml`) with the workflow shipped as package assets under `src/swam/assets/`.
+- New CLI entrypoint `swam`:
+  - `swam config [--profile slurm|local]` opens a Textual TUI that edits user-owned profiles at `~/.config/swam/profiles/<profile>/config.yaml` (ruamel round-trip keeps comments; every save makes a backup in `~/.config/swam/backups/`).
+  - `swam run [--profile …] [--input/--output] [--test] [snakemake args…]` stages the workflow into `~/.cache/swam/runtime/<version>/` (re-staged when the assets' fingerprint changes), always adds `--scheduler greedy`, merges user `--config` into its own, tees the driver log, and builds the run report.
+- TUI has an OSRS-inspired theme (stone/gold palette, status orbs, side-tab panel, parchment chatbox). Tabs:
+  - **Stages:** short reads / contigs / MAGs tiles, AMR mode, MAG skips, geNomad splits, min read length, dependency warnings.
+  - **Paths:** in/out, dbs, GTDB-tk, clean reads, contigs, plus a live sample count.
+  - **Slurm:** account, partition, defaults, per-rule threads / mem / time / group.
+  - **Snakemake:** jobs, cores, restarts, conda frontend, flags.
+- Profiles: the existing Slurm profile plus a new local profile; both now carry a `config:` block of pipeline settings. Retired the empty `config/slurm/{small,large}-batch` dirs.
+- Workflow path fixes:
+  - `_REPO = dirname(workflow.basedir)`. The old `dirname×3(workflow.snakefile)` only worked with a relative `-s workflow/Snakefile`.
+  - New `test_dir` / `dbs_dir` config keys (`_TEST_DIR`, `_DBS_DIR`).
+  - The Snakefile `configfile:` is now resolved from `workflow.basedir`.
+- `run_swam.sh` is now a shim for `swam run --profile slurm`.
+- Renamed the project everywhere: SWAM-meta → **SWAM (Surface Water AMR Monitoring)**. Covers the package, CLI, shim, XDG dirs, docs, recipe, report header and test scripts. Older entries in this log are left as written.
+
+### Files changed
+- `workflow/` → `src/swam/assets/workflow/`; `config/config.yaml` → `src/swam/assets/config/config.yaml`; `config/slurm/config.yaml` → `src/swam/assets/config/slurm/config.yaml` (+ `config:` block); new `src/swam/assets/config/local/config.yaml`
+- `src/swam/{__init__,__main__,cli,config,runtime,tui}.py`, `src/swam/tui.tcss`: CLI + TUI
+- `src/swam/assets/workflow/rules/{common,short_reads,contigs}.smk`, `Snakefile`: runtime-root / test_dir / dbs_dir / configfile paths
+- `pyproject.toml`, `recipe/meta.yaml`: packaging
+- `run_swam-meta.sh` → `run_swam.sh`: shim
+- `README.md`, `CLAUDE.md`: new usage, layout, conventions, rename
+- `test/scripts/*.py`, `test/data/mock_data_summary.txt`, `build_run_report.py`, `resources/README.md`: name only
+- `.gitignore`: `*.egg-info/`, `__pycache__/`
+
+### Verification
+- `pip install -e .` → `swam 0.1.0`; `swam --help`, `swam config --print-path`, and `swam run --print-runtime-root` all OK.
+- Headless TUI check (Textual Pilot) on both profiles:
+  - Edited a few values and saved; the profile diff showed only those values changed, with comments kept.
+  - Unsaved-changes quit guard, reload, and integer validation all work.
+  - Took SVG screenshots of every tab.
+- `swam run --profile local --test -n` → 38 jobs vs 39 from the pre-change layout. The only difference is `init_mge_tool`, which is skipped because its marker file already exists in `test/output/`. `--config run_mags=False` is merged correctly (27 jobs).
+- `bash run_swam.sh test/data <tmp> -n` → 46 jobs (slurm profile).
+- **Not verified:** no full (non-dry) run through `swam run`, and the TUI has not been opened in a real terminal.
+
+### Outstanding
+- Before the first full test run through `swam run`: delete `test/output/data/mge_contigs/.mef_install.done`. `init_mge_tool` keeps its marker in `output_dir`, but the new runtime builds fresh conda envs, so MobileElementFinder would not be installed in them.
+- Database default moved to `~/.local/share/swam/dbs`. To reuse the repo's existing `dbs/`, set **Database dir** in the TUI.
+- GitHub repo is still `davis-bc/SWAM-meta`, but the README and recipe now point to `davis-bc/SWAM`. Rename with `gh repo rename SWAM`.
+- Local checkout dir is still `~/Projects/NARMS/SWAM-meta/`. Rename it at the end of a session.
+- OHM-g's CLAUDE.md still calls itself "SWAM-g"; consider renaming it to avoid confusion with SWAM.
+- Keep in sync with the workflow: `tui.py` `R1_GLOBS`, `LOCAL_RULES` and `RETRY_SCALED_RULES` copy `common.smk` sample discovery, the Snakefile `localrules:`, and the retry-scaled rules.
