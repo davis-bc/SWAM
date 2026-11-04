@@ -1,0 +1,332 @@
+/* SWAM config TUI — stone-and-gold client look.
+   Colours come from the registered theme ($stone*, $gold, $parchment*, $examine
+   are theme variables; see OSRS_THEME_VARS in tui.py). */
+
+Screen {
+    background: $background;
+    color: $foreground;
+    layout: vertical;
+}
+
+/* ---------------------------------------------------------------- orbs -- */
+
+#orbs {
+    height: 4;
+    padding: 0 1;
+    background: $stone-dark;
+    border-bottom: outer $stone-shadow;
+}
+
+.orb {
+    width: 16;
+    height: 4;
+    margin-right: 1;
+    content-align: center middle;
+    text-align: center;
+    color: $success;
+    text-style: bold;
+    background: $stone;
+    border: round $stone-light;
+}
+
+.orb-low {
+    color: $error;
+}
+
+#orb-profile {
+    color: $examine;
+}
+
+#orb-amr {
+    color: $gold;
+}
+
+#brand {
+    width: 1fr;
+    height: 4;
+    content-align: right middle;
+    color: $gold;
+    text-style: bold italic;
+}
+
+/* -------------------------------------------------------------- client -- */
+
+#client {
+    height: 1fr;
+}
+
+#viewport {
+    width: 1fr;
+    height: 1fr;
+    background: $stone-dark;
+    border: heavy $stone-light;
+    border-title-color: $gold;
+    border-title-style: bold;
+}
+
+.tab-body {
+    padding: 0 1;
+    scrollbar-color: $stone-light;
+    scrollbar-background: $stone-shadow;
+}
+
+.section {
+    height: auto;
+    margin: 1 0 0 0;
+    padding: 0 1;
+    background: $stone;
+    border: outer $stone-light;
+    border-title-color: $gold;
+    border-title-style: bold;
+}
+
+.field-row {
+    height: 3;
+    align: left middle;
+}
+
+.field-label {
+    width: 26;
+    height: 3;
+    content-align: left middle;
+    color: $foreground;
+}
+
+.field-help {
+    width: 1fr;
+    height: 3;
+    content-align: left middle;
+    padding-left: 2;
+    color: $examine;
+    text-style: italic;
+}
+
+.readonly {
+    width: 32;
+    padding: 0 1;
+    color: $gold;
+}
+
+Input {
+    width: 44;
+    height: 3;
+    background: $stone-shadow;
+    color: $foreground;
+    border: tall $stone-light;
+}
+
+Input:focus {
+    border: tall $primary;
+}
+
+Input:disabled {
+    opacity: 50%;
+}
+
+Select {
+    width: 44;
+}
+
+Select > SelectCurrent {
+    background: $stone-shadow;
+    border: tall $stone-light;
+}
+
+Switch {
+    background: $stone-shadow;
+    border: tall $stone-light;
+}
+
+Switch > .switch--slider {
+    color: $stone-light;
+    background: $stone-shadow;
+}
+
+Switch.-on > .switch--slider {
+    color: $success;
+}
+
+.hint {
+    height: auto;
+    margin: 1 0;
+    color: $examine;
+}
+
+.hint-warn {
+    color: $warning;
+}
+
+/* --------------------------------------------------------- stage tiles -- */
+
+#tiles {
+    grid-size: 3;
+    grid-gutter: 0 2;
+    height: auto;
+    margin-top: 1;
+}
+
+.tile {
+    height: 11;
+    padding: 0 1;
+    align-horizontal: center;
+    background: $stone-dark;
+    border: outer $stone-shadow;
+}
+
+.tile.active {
+    background: $stone;
+    border: double $gold;
+}
+
+.tile-glyph {
+    width: 100%;
+    text-align: center;
+    color: $stone-light;
+    text-style: bold;
+}
+
+.tile.active .tile-glyph {
+    color: $gold;
+}
+
+.tile-name {
+    width: 100%;
+    text-align: center;
+    text-style: bold;
+    color: $primary;
+}
+
+.tile-desc {
+    width: 100%;
+    height: 3;
+    text-align: center;
+    color: $examine;
+}
+
+.tile Switch {
+    width: 12;
+}
+
+/* ---------------------------------------------------------- rule table -- */
+
+.rule-row {
+    height: 3;
+}
+
+.rule-header {
+    height: 1;
+    color: $gold;
+    text-style: bold;
+}
+
+.rule-name {
+    width: 22;
+    height: 3;
+    content-align: left middle;
+}
+
+.rule-header .rule-name,
+.rule-header .rule-col,
+.rule-header .rule-note {
+    height: 1;
+}
+
+.rule-col {
+    width: 11;
+    content-align: center middle;
+}
+
+.rule-input {
+    width: 11;
+}
+
+.rule-note {
+    width: 1fr;
+    height: 3;
+    padding-left: 1;
+    content-align: left middle;
+    color: $examine;
+    text-style: italic;
+}
+
+/* ----------------------------------------------------------- side panel -- */
+
+#sidepanel {
+    width: 30;
+    height: 1fr;
+    padding: 0 1;
+    background: $stone;
+    border: heavy $stone-light;
+}
+
+#side-title {
+    width: 100%;
+    text-align: center;
+    color: $gold;
+    text-style: bold;
+}
+
+#side-tabs {
+    grid-size: 2;
+    grid-gutter: 0 1;
+    height: 10;
+}
+
+.side-tab {
+    width: 100%;
+    height: 5;
+    min-width: 8;
+    color: $primary;
+    background: $stone-dark;
+    border: outer $stone-shadow;
+    text-style: bold;
+}
+
+.side-tab:hover {
+    color: $gold;
+    background: $stone-light;
+}
+
+.side-tab.active {
+    color: $gold;
+    background: $error 40%;
+    border: outer $gold;
+}
+
+#side-info {
+    height: 1fr;
+    margin-top: 1;
+    color: $foreground;
+}
+
+.stone-button {
+    width: 100%;
+    color: $gold;
+    background: $stone-dark;
+    border: outer $stone-light;
+    text-style: bold;
+}
+
+.stone-button:hover {
+    color: $primary;
+    background: $stone-light;
+}
+
+/* -------------------------------------------------------------- chatbox -- */
+
+#chatbox {
+    height: 8;
+    padding: 0 1;
+    background: $parchment;
+    color: $parchment-ink;
+    border: heavy $stone-light;
+    border-title-color: $gold;
+    border-title-background: $stone-dark;
+    border-title-style: bold;
+    scrollbar-color: $stone-light;
+    scrollbar-background: $parchment;
+}
+
+Footer {
+    background: $stone-dark;
+}

@@ -1213,3 +1213,156 @@ one is 100 (expected behaviour; will spread meaningfully with more production sa
 - `checkm2.yaml`, `gtdbtk.yaml`, and `metabolic.yaml` are still not version-pinned.
 - The new Slurm wrapper/reporting path was validated locally and against test outputs, but not yet on a real cluster submission.
 - A larger real cohort is still needed to validate risk-score spread beyond the 2-sample mock test.
+
+## 2026-04-28 — ARGNet discovery mode added and exercised on the mock dataset
+
+### What changed
+- Added a new `amr_mode` config switch in `config/config.yaml`:
+  - `operational` (default): existing AMRFinderPlus-only behavior
+  - `discovery`: keep all existing operational outputs and add ARGNet discovery outputs
+- Added discovery-mode plumbing in `workflow/rules/common.smk` and `workflow/Snakefile`:
+  - normalized/validated `amr_mode`
+  - new discovery-mode top-level outputs:
+    - `ARGnet_contig_summary.tsv`
+    - `ARGnet_mag_summary.tsv`
+- Added ARGNet bootstrap and inference rules:
+  - `init_argnet` clones ARGNet under `dbs/argnet/ARGNet/` and downloads the long-sequence model files (`AELS_tall.h5`, `classifier-ls_tall.h5`)
+  - `contig_argnet` runs ARGNet on per-sample Prodigal protein FASTA from assembled contigs
+  - `mag_argnet` concatenates per-bin Prodigal proteins with bin-prefixed IDs and runs ARGNet once per sample
+- Added a dedicated ARGNet conda env at `workflow/envs/argnet.yaml` (Python 3.11 + TensorFlow CPU stack compatible with upstream ARGNet)
+- Added `workflow/scripts/run_argnet.py` as a wrapper around the upstream ARGNet checkout:
+  - imports the upstream model module directly
+  - forces CPU execution (`CUDA_VISIBLE_DEVICES=-1`) so discovery runs do not compete for GPU memory
+  - sanitizes Prodigal amino-acid FASTA by stripping `*` stop codons before inference
+  - moves repo-relative ARGNet output into the Snakemake-declared output path
+- Added discovery summary scripts:
+  - `workflow/scripts/argnet_contig_summary.py`
+  - `workflow/scripts/argnet_mag_summary.py`
+  These emit ARG-positive-only tables with contextual metadata instead of modifying existing AMRFinderPlus outputs or risk scoring.
+- Updated `README.md` to document `amr_mode` and the new discovery outputs.
+
+### Validation / test run
+- Discovery-mode dry run passed:
+  - `snakemake -s workflow/Snakefile -n --use-conda --cores 4 --scheduler greedy --config test=True amr_mode=discovery`
+- Discovery-mode execution on the bundled mock dataset succeeded for the new outputs:
+  - `snakemake -s workflow/Snakefile --use-conda --cores 4 --scheduler greedy --rerun-incomplete /home/benda/Projects/NARMS/SWAM-meta/test/output/ARGnet_contig_summary.tsv /home/benda/Projects/NARMS/SWAM-meta/test/output/ARGnet_mag_summary.tsv --config test=True amr_mode=discovery`
+- Output shape confirmed:
+  - per-sample raw ARGNet files contain `test_id`, `ARG_prediction`, `resistance_category`, `probability`
+  - `ARGnet_contig_summary.tsv` adds `sample`, `protein_id`, `contig_id`, `trimmed_mean`, `molecule_type`, and `taxonomy`
+  - `ARGnet_mag_summary.tsv` adds `sample`, `bin_id`, `protein_id`, `contig_id`, and MAG abundance
+- Mock test output counts from this run:
+  - `ARGnet_contig_summary.tsv`: 1648 ARG-positive rows
+  - `ARGnet_mag_summary.tsv`: 1839 ARG-positive rows
+
+### Current pipeline state
+- Operational mode remains the default and still uses AMRFinderPlus-derived outputs and risk scoring only.
+- Discovery mode now runs ARGNet alongside the operational AMRFinderPlus path for contig and MAG proteins.
+- The mock dataset run completed successfully for both discovery summaries after two integration fixes:
+  - sanitize `*` stop codons in Prodigal proteins before ARGNet inference
+  - force CPU execution to avoid concurrent GPU-memory contention during test-mode runs
+
+### Known issues / next steps
+- Discovery mode is currently implemented for **contig and MAG proteins only**; short-read ARGNet inference is intentionally not wired into `short_reads_output.csv`.
+- The mock data produced many ARGNet-positive calls, which is expected for a broad discovery model but should be interpreted as exploratory evidence rather than operational confirmation.
+- A real production cohort is still needed to benchmark ARGNet runtime and calibrate how discovery summaries should be interpreted alongside AMRFinderPlus calls.
+
+## 2026-04-28 — ARGNet short-read discovery added
+
+### What changed
+- Extended discovery mode so ARGNet now runs on **host-filtered short reads** as well as contig and MAG proteins.
+- Added the short-read raw inference rule in `workflow/rules/short_reads.smk`:
+  - `short_reads_argnet` converts `{sample}_R1.clean.fastq.gz` + `{sample}_R2.clean.fastq.gz` to a temporary FASTA
+  - runs `run_argnet.py --seq-type nt --model argnet-s`
+  - writes per-sample raw outputs to `data/argnet_short_reads/{sample}_argnet.tsv`
+- Added a new top-level discovery summary:
+  - `ARGnet_short-reads_summary.tsv`
+- Added `workflow/scripts/argnet_short_reads_summary.py`, which summarizes ARGNet short-read calls by:
+  - `sample`
+  - `resistance_category`
+  - `arg_read_count`
+  - `total_reads_scored`
+  - `total_arg_reads`
+  - `non_arg_reads`
+  - `short_fragment_reads`
+  - `arg_fraction`
+  - `arg_reads_per_million`
+  - `mean_probability`
+  - `max_probability`
+- Kept short-read ARGNet metrics intentionally **read-level**, not cpg-normalized, so they can sit next to AMRFinder/KMA outputs without implying direct apples-to-apples abundance equivalence.
+- Updated ARGNet bootstrap/env support:
+  - `init_argnet` now downloads the short-read model files too (`AESS_tall.h5`, `classifier-ss_tall.h5`)
+  - `workflow/envs/argnet.yaml` now installs `kito`, which the upstream `argnet_ssnt_new_chunk.py` imports
+- Updated README/config comments and the session plan to reflect that discovery mode now covers **short reads, contigs, and MAGs**.
+
+### Validation / test run
+- Dry run passed for the new short-read target:
+  - `snakemake -s workflow/Snakefile -n --use-conda --cores 4 --scheduler greedy /home/benda/Projects/NARMS/SWAM-meta/test/output/ARGnet_short-reads_summary.tsv --config test=True amr_mode=discovery`
+- Full short-read discovery execution on the bundled mock dataset succeeded:
+  - `snakemake -s workflow/Snakefile --use-conda --cores 4 --scheduler greedy /home/benda/Projects/NARMS/SWAM-meta/test/output/ARGnet_short-reads_summary.tsv --config test=True amr_mode=discovery`
+- Observed mock output sizes:
+  - `mock1_argnet.tsv`: 570,253 scored reads
+  - `mock2_argnet.tsv`: 791,519 scored reads
+  - `ARGnet_short-reads_summary.tsv`: 45 category rows across both samples
+
+### Current pipeline state
+- Discovery mode now produces a parallel ARGNet layer at all three levels:
+  - short reads: `ARGnet_short-reads_summary.tsv`
+  - contigs: `ARGnet_contig_summary.tsv`
+  - MAGs: `ARGnet_mag_summary.tsv`
+- Operational AMRFinder outputs and risk scoring remain unchanged.
+
+### Known issues / next steps
+- Short-read ARGNet is **substantially slower** than contig/MAG ARGNet on the mock dataset:
+  - mock2 completed in ~21 minutes
+  - mock1 completed in ~15 minutes
+  This is workable for smoke-testing but may be expensive on large production cohorts.
+- Despite forcing CPU mode in `run_argnet.py`, the upstream short-read model still appears to initialize GPU-visible TensorFlow state in this environment. It ran successfully here, but this behavior should be revisited if GPU contention becomes an issue on shared systems.
+- The short-read ARGNet summary is intentionally read-level (counts/fractions/RPM), not cpg-normalized. Any future “apples to apples” comparison with AMRFinder short-read abundance should be treated as a separate methods problem rather than folded into this table implicitly.
+
+## 2026-11-03 — Packaged `swam` CLI + Textual config TUI; project renamed SWAM-meta → SWAM
+
+### What was done
+- Repackaged the workflow following the OHM-g pattern: installable `swam` package (`pyproject.toml`, `recipe/meta.yaml`) with the workflow shipped as package assets under `src/swam/assets/`.
+- New CLI entrypoint `swam`:
+  - `swam config [--profile slurm|local]` opens a Textual TUI that edits user-owned profiles at `~/.config/swam/profiles/<profile>/config.yaml` (ruamel round-trip keeps comments; every save makes a backup in `~/.config/swam/backups/`).
+  - `swam run [--profile …] [--input/--output] [--test] [snakemake args…]` stages the workflow into `~/.cache/swam/runtime/<version>/` (re-staged when the assets' fingerprint changes), always adds `--scheduler greedy`, merges user `--config` into its own, tees the driver log, and builds the run report.
+- TUI has an OSRS-inspired theme (stone/gold palette, status orbs, side-tab panel, parchment chatbox). Tabs:
+  - **Stages:** short reads / contigs / MAGs tiles, AMR mode, MAG skips, geNomad splits, min read length, dependency warnings.
+  - **Paths:** in/out, dbs, GTDB-tk, clean reads, contigs, plus a live sample count.
+  - **Slurm:** account, partition, defaults, per-rule threads / mem / time / group.
+  - **Snakemake:** jobs, cores, restarts, conda frontend, flags.
+- Profiles: the existing Slurm profile plus a new local profile; both now carry a `config:` block of pipeline settings. Retired the empty `config/slurm/{small,large}-batch` dirs.
+- Workflow path fixes:
+  - `_REPO = dirname(workflow.basedir)`. The old `dirname×3(workflow.snakefile)` only worked with a relative `-s workflow/Snakefile`.
+  - New `test_dir` / `dbs_dir` config keys (`_TEST_DIR`, `_DBS_DIR`).
+  - The Snakefile `configfile:` is now resolved from `workflow.basedir`.
+- `run_swam.sh` is now a shim for `swam run --profile slurm`.
+- Renamed the project everywhere: SWAM-meta → **SWAM (Surface Water AMR Monitoring)**. Covers the package, CLI, shim, XDG dirs, docs, recipe, report header and test scripts. Older entries in this log are left as written.
+
+### Files changed
+- `workflow/` → `src/swam/assets/workflow/`; `config/config.yaml` → `src/swam/assets/config/config.yaml`; `config/slurm/config.yaml` → `src/swam/assets/config/slurm/config.yaml` (+ `config:` block); new `src/swam/assets/config/local/config.yaml`
+- `src/swam/{__init__,__main__,cli,config,runtime,tui}.py`, `src/swam/tui.tcss`: CLI + TUI
+- `src/swam/assets/workflow/rules/{common,short_reads,contigs}.smk`, `Snakefile`: runtime-root / test_dir / dbs_dir / configfile paths
+- `pyproject.toml`, `recipe/meta.yaml`: packaging
+- `run_swam-meta.sh` → `run_swam.sh`: shim
+- `README.md`, `CLAUDE.md`: new usage, layout, conventions, rename
+- `test/scripts/*.py`, `test/data/mock_data_summary.txt`, `build_run_report.py`, `resources/README.md`: name only
+- `.gitignore`: `*.egg-info/`, `__pycache__/`
+
+### Verification
+- `pip install -e .` → `swam 0.1.0`; `swam --help`, `swam config --print-path`, and `swam run --print-runtime-root` all OK.
+- Headless TUI check (Textual Pilot) on both profiles:
+  - Edited a few values and saved; the profile diff showed only those values changed, with comments kept.
+  - Unsaved-changes quit guard, reload, and integer validation all work.
+  - Took SVG screenshots of every tab.
+- `swam run --profile local --test -n` → 38 jobs vs 39 from the pre-change layout. The only difference is `init_mge_tool`, which is skipped because its marker file already exists in `test/output/`. `--config run_mags=False` is merged correctly (27 jobs).
+- `bash run_swam.sh test/data <tmp> -n` → 46 jobs (slurm profile).
+- **Not verified:** no full (non-dry) run through `swam run`, and the TUI has not been opened in a real terminal.
+
+### Outstanding
+- Before the first full test run through `swam run`: delete `test/output/data/mge_contigs/.mef_install.done`. `init_mge_tool` keeps its marker in `output_dir`, but the new runtime builds fresh conda envs, so MobileElementFinder would not be installed in them.
+- Database default moved to `~/.local/share/swam/dbs`. To reuse the repo's existing `dbs/`, set **Database dir** in the TUI.
+- GitHub repo is still `davis-bc/SWAM-meta`, but the README and recipe now point to `davis-bc/SWAM`. Rename with `gh repo rename SWAM`.
+- Local checkout dir is still `~/Projects/NARMS/SWAM-meta/`. Rename it at the end of a session.
+- OHM-g's CLAUDE.md still calls itself "SWAM-g"; consider renaming it to avoid confusion with SWAM.
+- Keep in sync with the workflow: `tui.py` `R1_GLOBS`, `LOCAL_RULES` and `RETRY_SCALED_RULES` copy `common.smk` sample discovery, the Snakefile `localrules:`, and the retry-scaled rules.

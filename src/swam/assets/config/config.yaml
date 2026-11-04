@@ -22,6 +22,12 @@ run_contigs: True
 # taxonomy, metabolism, quality, abundance).
 run_mags: True
 
+# AMR annotation mode:
+#   operational - current conservative AMRFinderPlus outputs only
+#   discovery   - keep current outputs and add ARGnet-based discovery summaries
+#                 for short reads, contigs, and MAGs
+amr_mode: "operational"
+
 # -------------------------------------------------------------------
 #  External inputs — required when bypassing upstream stages
 # -------------------------------------------------------------------
@@ -38,6 +44,11 @@ contigs_dir: ""
 # -------------------------------------------------------------------
 #  Reference databases
 # -------------------------------------------------------------------
+
+# Root directory for auto-downloaded reference databases (AMRFinderPlus, geNomad,
+# UniRef50, CheckM2, ...). Empty = `swam run` uses ~/.local/share/swam/dbs
+# (or <runtime root>/dbs/ when Snakemake is invoked directly).
+dbs_dir: ""
 
 # Path to the GTDB-tk reference data directory (the only database that
 # requires manual setup — all others are auto-downloaded by initiate_dbs).

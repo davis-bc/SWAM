@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-inject_marker_reads.py  —  SWAM-meta test data helper
+inject_marker_reads.py  —  SWAM test data helper
 
 Generates synthetic paired-end reads from the anthropogenic marker sequences
 (pBI143 and crAss001) and appends them to the mock test FASTQs.

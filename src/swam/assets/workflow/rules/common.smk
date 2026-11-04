@@ -9,11 +9,16 @@ import re
 
 _TEST   = config.get("test", False)
 _DB_TAG = ".test" if _TEST else ""
-_REPO   = os.path.dirname(os.path.dirname(os.path.dirname(workflow.snakefile)))
+# Runtime root: the directory that holds workflow/ (and config/). Resolved from
+# workflow.basedir so it is correct for both relative and absolute -s paths.
+_REPO   = os.path.dirname(os.path.abspath(workflow.basedir))
+# Test assets (mock FASTQs + mini DBs) live in the source checkout, not in the
+# installed package; `swam run --test` passes test_dir explicitly.
+_TEST_DIR = config.get("test_dir") or os.path.join(_REPO, "test")
 
 if _TEST:
-    input_dir  = os.path.join(_REPO, "test", "data")
-    output_dir = os.path.join(_REPO, "test", "output")
+    input_dir  = os.path.join(_TEST_DIR, "data")
+    output_dir = os.path.join(_TEST_DIR, "output")
     # GTDB-tk, METABOLIC, and CheckM2 are skipped in test mode
     config["skip_gtdbtk"]    = True
     config["skip_metabolic"] = True
@@ -26,12 +31,12 @@ else:
 
 # ---------------------------------------------------------------------------
 #   Database paths
-#   All production databases live in SWAM-meta/dbs/ under one subdirectory per
+#   All production databases live in dbs_dir (default <runtime root>/dbs/) under one subdirectory per
 #   tool or reference bundle. Legacy paths are kept here so init rules can
 #   migrate older layouts in-place without forcing unnecessary re-downloads.
 # ---------------------------------------------------------------------------
 
-_DBS_DIR = os.path.join(_REPO, "dbs")
+_DBS_DIR = config.get("dbs_dir") or os.path.join(_REPO, "dbs")
 
 _DB_AMR_KMA_DIR  = os.path.join(_DBS_DIR, "amrfinderplus_kma")
 _DB_AMR_DIR      = os.path.join(_DBS_DIR, "amrfinderplus")
@@ -42,13 +47,14 @@ _DB_GENOMAD_DIR  = os.path.join(_DBS_DIR, "genomad")
 _DB_UNIREF50_DIR = os.path.join(_DBS_DIR, "uniref50")
 _DB_CHECKM2_DIR  = os.path.join(_DBS_DIR, "checkm2")
 _DB_METABOLIC_DIR = os.path.join(_DBS_DIR, "metabolic")
+_DB_ARGNET_DIR   = os.path.join(_DBS_DIR, "argnet")
 
 _LEGACY_SR_DBS_DIR     = os.path.join(_DBS_DIR, "short_reads")
 _LEGACY_GENOMAD_DB_DIR = os.path.join(_DBS_DIR, "genomad_db")
 _LEGACY_AFP_DB_DIR     = os.path.join(_DBS_DIR, "amrfinderplus_db")
 
 _SCG_SOURCE_FASTA = (
-    os.path.join(_REPO, "test", "dbs", "scg", "SCGs_40.fasta")
+    os.path.join(_TEST_DIR, "dbs", "scg", "SCGs_40.fasta")
     if _TEST else os.path.join(_REPO, "workflow", "resources", "SCGs_40_All.fasta")
 )
 
@@ -57,6 +63,7 @@ _UNIREF50_DB = os.path.join(_DB_UNIREF50_DIR, "uniref50_mmseqs")
 _AFP_DB_DIR = _DB_AMR_DIR
 _CHECKM2_DB = os.path.join(_DB_CHECKM2_DIR, "CheckM2_database", "uniref100.KO.1.dmnd")
 _METABOLIC_DIR = os.path.join(_DB_METABOLIC_DIR, "METABOLIC")
+_ARGNET_REPO_DIR = os.path.join(_DB_ARGNET_DIR, "ARGNet")
 
 # ---------------------------------------------------------------------------
 #   Output path helpers
@@ -64,11 +71,14 @@ _METABOLIC_DIR = os.path.join(_DB_METABOLIC_DIR, "METABOLIC")
 
 FASTP_SUMMARY = os.path.join(output_dir, "fastp_summary.csv")
 SHORT_READS_OUTPUT = os.path.join(output_dir, "short_reads_output.csv")
+ARGNET_SHORT_READS_SUMMARY_OUTPUT = os.path.join(output_dir, "ARGnet_short-reads_summary.tsv")
 MARKERS_CPG_OUTPUT = os.path.join(output_dir, "data", "QAQC", "markers_cpg.csv")
 ASSEMBLY_QA_OUTPUT = os.path.join(output_dir, "assembly_qa.tsv")
 CONTIG_SUMMARY_OUTPUT = os.path.join(output_dir, "contig_summary.tsv")
 AMR_ABUNDANCE_SUMMARY_OUTPUT = os.path.join(output_dir, "AMR_abundance_summary.csv")
 MAG_SUMMARY_OUTPUT = os.path.join(output_dir, "mag_summary.tsv")
+ARGNET_CONTIG_SUMMARY_OUTPUT = os.path.join(output_dir, "ARGnet_contig_summary.tsv")
+ARGNET_MAG_SUMMARY_OUTPUT = os.path.join(output_dir, "ARGnet_mag_summary.tsv")
 
 
 def sample_log(rule_name):
@@ -103,6 +113,13 @@ _RUN_MAGS = config.get("run_mags",        True)
 # ---------------------------------------------------------------------------
 
 from snakemake.exceptions import WorkflowError
+
+_AMR_MODE = str(config.get("amr_mode", "operational")).strip().lower()
+if _AMR_MODE not in {"operational", "discovery"}:
+    raise WorkflowError(
+        "amr_mode must be either 'operational' or 'discovery' in config.yaml."
+    )
+_RUN_ARGNET = _AMR_MODE == "discovery"
 
 if not _RUN_SR and (_RUN_CTG or _RUN_MAGS) and not config.get("clean_reads_dir"):
     raise WorkflowError(

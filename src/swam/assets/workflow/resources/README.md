@@ -1,6 +1,6 @@
 # workflow/resources
 
-This directory contains small reference files that ship with SWAM-meta.
+This directory contains small reference files that ship with SWAM.
 
 ## SCGs_40_All.fasta
 
@@ -8,7 +8,7 @@ A curated set of 40 universal single-copy genes (SCGs) used to estimate
 the number of genomes in a sample (`n_genomes`), which normalises AMR
 abundance to copies-per-genome (cpg).
 
-**This file must be present before running SWAM-meta in production mode.**
+**This file must be present before running SWAM in production mode.**
 Copy it here from your working location:
 
 ```bash

@@ -236,7 +236,7 @@ def write_tsv(path: Path, rows: list[dict], fieldnames: list[str]) -> None:
 def build_text_report(report_path: Path, sample_rows: list[dict], failed_rows: list[dict], driver_log: str) -> None:
     counts = Counter(row["overall_status"] for row in sample_rows)
     with report_path.open("w", encoding="utf-8") as handle:
-        handle.write("SWAM-meta run report\n")
+        handle.write("SWAM run report\n")
         handle.write("===================\n\n")
         if driver_log:
             handle.write(f"Driver log: {driver_log}\n\n")
@@ -267,7 +267,7 @@ def build_text_report(report_path: Path, sample_rows: list[dict], failed_rows: l
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Build a post-run status report for SWAM-meta.")
+    parser = argparse.ArgumentParser(description="Build a post-run status report for SWAM.")
     parser.add_argument("--input-dir", required=True)
     parser.add_argument("--output-dir", required=True)
     parser.add_argument("--driver-log", default="")

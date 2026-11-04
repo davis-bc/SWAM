@@ -18,4 +18,5 @@ test/dbs/amrfinder/afp_db*
 test/dbs/markers/markers_db*
 test/dbs/markers/markers.fa
 test/dbs/scg/scg_db.dmnd
-.github/copilot-instructions.md
+*.egg-info/
+__pycache__/

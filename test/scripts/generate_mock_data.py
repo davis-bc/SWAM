@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-generate_mock_data.py  –  SWAM-meta mock dataset (v2)
+generate_mock_data.py  –  SWAM mock dataset (v2)
 
 Uses real, full-length reference genomes from a local database directory to
 create two mock metagenomic samples that:
@@ -375,7 +375,7 @@ def make_sample(wgsim, sample, components, base_seed, ref_dir, ecoli_records, tm
 def write_summary(all_stats):
     out_path = os.path.join(TEST_DATA, "mock_data_summary.txt")
     lines = [
-        "SWAM-meta mock dataset v2 — generation summary",
+        "SWAM mock dataset v2 — generation summary",
         "=" * 60,
         "",
         "Reference genome source",
@@ -563,7 +563,7 @@ def update_protein_databases(scg_cdses):
 # ---------------------------------------------------------------------------
 
 def main():
-    parser = argparse.ArgumentParser(description="Generate SWAM-meta mock test data v2")
+    parser = argparse.ArgumentParser(description="Generate SWAM mock test data v2")
     parser.add_argument("--ref-dir", default=REF_DIR_DEFAULT,
                         help=f"Directory containing reference genome .fna.gz files (default: {REF_DIR_DEFAULT})")
     args = parser.parse_args()
@@ -580,7 +580,7 @@ def main():
         sys.exit("ERROR: wgsim not found.  Run: snakemake --use-conda first.")
 
     print("=" * 60)
-    print("SWAM-meta: generating mock test data v2")
+    print("SWAM: generating mock test data v2")
     print(f"  ROOT:    {ROOT}")
     print(f"  ref_dir: {ref_dir}")
     print(f"  wgsim:   {wgsim}")

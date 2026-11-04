@@ -199,9 +199,9 @@ rule init_mmseqs_db:
         test_mode    = _TEST,
         db_prefix    = _UNIREF50_DB,
         dbs_dir      = _DB_UNIREF50_DIR,
-        test_fasta   = os.path.join(_REPO, "test", "dbs", "uniref50", "uniref50_mini.fasta"),
-        test_tax_dir = os.path.join(_REPO, "test", "dbs", "uniref50"),
-        test_mapping = os.path.join(_REPO, "test", "dbs", "uniref50", "tax_mapping.tsv"),
+        test_fasta   = os.path.join(_TEST_DIR, "dbs", "uniref50", "uniref50_mini.fasta"),
+        test_tax_dir = os.path.join(_TEST_DIR, "dbs", "uniref50"),
+        test_mapping = os.path.join(_TEST_DIR, "dbs", "uniref50", "tax_mapping.tsv"),
     threads: lambda wc: res(16, 4)
     resources:
         mem_mb  = lambda wc: res(32000, 4000),
@@ -330,6 +330,58 @@ rule init_amrfinder_db:
         """
 
 # ---------------------------------------------------------------------------
+#   One-time: clone ARGNet and fetch long-sequence models for discovery mode
+# ---------------------------------------------------------------------------
+
+rule init_argnet:
+    output:
+        done = os.path.join(_DB_ARGNET_DIR, ".done")
+    params:
+        db_dir   = _DB_ARGNET_DIR,
+        repo_dir = _ARGNET_REPO_DIR
+    log:
+        rule_log("init_argnet")
+    shell:
+        """
+        set -euo pipefail
+        mkdir -p "$(dirname {log})" "{params.db_dir}"
+        if [ ! -d "{params.repo_dir}/.git" ]; then
+            echo "ARGNet: cloning repository..." | tee -a {log}
+            if ! git clone --depth 1 https://github.com/id-bioinfo/ARGnet.git "{params.repo_dir}" >> {log} 2>&1; then
+                git clone --depth 1 https://github.com/patience111/ARGNet.git "{params.repo_dir}" >> {log} 2>&1
+            fi
+        else
+            echo "ARGNet: repository already present, skipping clone" | tee -a {log}
+        fi
+        mkdir -p "{params.repo_dir}/model" "{params.repo_dir}/results"
+        if [ ! -f "{params.repo_dir}/model/AELS_tall.h5" ]; then
+            echo "ARGNet: downloading AELS_tall.h5..." | tee -a {log}
+            curl -L --progress-bar \
+                -o "{params.repo_dir}/model/AELS_tall.h5" \
+                https://github.com/patience111/ARGNet/releases/download/v1.0.1/AELS_tall.h5 2>> {log}
+        fi
+        if [ ! -f "{params.repo_dir}/model/classifier-ls_tall.h5" ]; then
+            echo "ARGNet: downloading classifier-ls_tall.h5..." | tee -a {log}
+            curl -L --progress-bar \
+                -o "{params.repo_dir}/model/classifier-ls_tall.h5" \
+                https://github.com/patience111/ARGNet/releases/download/v1.0.1/classifier-ls_tall.h5 2>> {log}
+        fi
+        if [ ! -f "{params.repo_dir}/model/AESS_tall.h5" ]; then
+            echo "ARGNet: downloading AESS_tall.h5..." | tee -a {log}
+            curl -L --progress-bar \
+                -o "{params.repo_dir}/model/AESS_tall.h5" \
+                https://github.com/patience111/ARGNet/releases/download/v1.0.1/AESS_tall.h5 2>> {log}
+        fi
+        if [ ! -f "{params.repo_dir}/model/classifier-ss_tall.h5" ]; then
+            echo "ARGNet: downloading classifier-ss_tall.h5..." | tee -a {log}
+            curl -L --progress-bar \
+                -o "{params.repo_dir}/model/classifier-ss_tall.h5" \
+                https://github.com/patience111/ARGNet/releases/download/v1.0.1/classifier-ss_tall.h5 2>> {log}
+        fi
+        touch {output.done}
+        """
+
+# ---------------------------------------------------------------------------
 #   Per-sample: AMR annotation on contigs (protein + nucleotide + GFF mode)
 # ---------------------------------------------------------------------------
 
@@ -367,6 +419,39 @@ rule contig_amr:
         # Create empty file if no hits found or database not yet set up
         [ -f {output.tsv} ] || touch {output.tsv}
         echo "[{wildcards.sample}] AMRFinderPlus: done"
+        """
+
+# ---------------------------------------------------------------------------
+#   Per-sample: ARGNet on Prodigal proteins for discovery mode
+# ---------------------------------------------------------------------------
+
+rule contig_argnet:
+    input:
+        faa         = os.path.join(output_dir, "data", "prodigal", "{sample}.faa"),
+        argnet_done = os.path.join(_DB_ARGNET_DIR, ".done")
+    output:
+        tsv = os.path.join(output_dir, "data", "argnet_contigs", "{sample}_argnet.tsv")
+    params:
+        repo_dir = _ARGNET_REPO_DIR
+    threads: lambda wc: res(8, 4)
+    resources:
+        mem_mb  = lambda wc: res(32000, 8000),
+        threads = lambda wc: res(8, 4),
+    log:
+        sample_log("contig_argnet")
+    conda: "../envs/argnet.yaml"
+    shell:
+        """
+        set -euo pipefail
+        mkdir -p "$(dirname {log})" "$(dirname {output.tsv})"
+        echo "[{wildcards.sample}] ARGNet: annotating contig proteins..."
+        python workflow/scripts/run_argnet.py \
+            --repo {params.repo_dir} \
+            --input {input.faa} \
+            --output {output.tsv} \
+            --seq-type aa \
+            --model argnet-l >> {log} 2>&1
+        echo "[{wildcards.sample}] ARGNet: done"
         """
 
 # ---------------------------------------------------------------------------
